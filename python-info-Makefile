@@ -1,0 +1,126 @@
+# Makefile for Python 5.6 Info files.
+
+# Omit "tut" because the html2texi script assumes that each (sub)section is
+# in a separate HTML file, but the tutorial puts entire chapters in single
+# HTML files.
+# MANUALS := api ext lib mac ref tut
+MANUALS := api ext lib mac ref
+TEXI_FILES := $(patsubst %,python-%.texi,$(MANUALS))
+INFO_FILES := $(patsubst %,python-%.info,$(MANUALS))
+
+# To build the Python Info files:
+#  1. Link or copy this file, as "Makefile", into wherever the Python HTML
+#     files appear; for example, .../Python/Doc/html/.
+#  2. make texi
+#  3. Edit the generated .texi files if desired.  For instance,
+#      * restore images skipped over by html2info.
+#        Example: insert "sqrt(sum(Si^2)/n)" after "Return the 
+#        root-mean-square of the fragment, i.e." in python-lib.texi.
+#        (This should be automated, or the LaTeX modified to produce
+#        better HTML.)
+#      * perhaps remove the @detailmenu ... @end detailmenu
+#  4. make info
+#  5. make tgz    (to make a tar archive of the Info files)
+
+
+all: info
+
+# Rule from .texi to .info is built in.
+info: $(INFO_FILES)
+
+texi: $(TEXI_FILES)
+
+# No sources in these rules:  I rarely want these regenerated automatically.
+
+# This Emacs expression does the following:
+#     * change @setfilename to prefix "python-"
+#     * fix up any sectioning, such as for Abstract
+#     * make Texinfo menus
+EMACS_ACTION := '(progn (goto-char (point-min)) (while (re-search-forward "\\(@setfilename \\)\\([-a-z]*\\)\n" nil t) (replace-match "\\1python-\\2.info\n")) (while (search-forward "@node Front Matter\n@chapter Abstract\n" nil t) (replace-match "@node Abstract\n@section Abstract\n" nil t)) (progn (mark-whole-buffer) (texinfo-master-menu (quote update-all-nodes))) (save-buffer))'
+
+# Remove some spurious HTML markup.
+# Some or all of these should be fixed in the original LaTeX source or the
+# LaTeX2HTML conversion.
+CLEANUP_HTML := perl -pi.bak -e '$$/=""; s/<DIV CLASS="navigation">\n<p><hr>/<DIV CLASS="navigation">\n<hr>/g; s/<var>protocol<\/var>_proxy/protocol_proxy/g'
+
+
+# I'd like all the extraneous output from Emacs not to appar, but it goes
+# to standard output and so is a bit of a pain to filter; as a poor
+# substitue, output some markers so we can see where it begins and ends.
+
+python-api.texi:
+	$(CLEANUP_HTML) `find api -name index.html -prune -o -name '*.html' -print`
+	html2texi.pl api/index.html
+	mv -f api.texi python-api.texi
+	@echo "===== Doing Emacs cleanup on python-api.texi"
+	emacs --batch python-api.texi --eval $(EMACS_ACTION)
+	@echo "===== Done with Emacs cleanup on python-api.texi"
+
+python-ext.texi:
+	$(CLEANUP_HTML) `find ext -name index.html -prune -o -name '*.html' -print`
+	html2texi.pl ext/index.html
+	mv -f ext.texi python-ext.texi
+	@echo "===== Doing Emacs cleanup on python-ext.texi"
+	emacs --batch python-ext.texi --eval $(EMACS_ACTION)
+	@echo "===== Done with Emacs cleanup on python-ext.texi"
+
+python-lib.texi:
+	$(CLEANUP_HTML) `find lib -name index.html -prune -o -name '*.html' -print`
+	html2texi.pl lib/index.html
+	mv -f lib.texi python-lib.texi
+	@echo "===== Doing Emacs cleanup on python-lib.texi"
+	emacs --batch python-lib.texi --eval $(EMACS_ACTION)
+	@echo "===== Done with Emacs cleanup on python-lib.texi"
+
+python-mac.texi:
+	$(CLEANUP_HTML) `find mac -name index.html -prune -o -name '*.html' -print`
+	html2texi.pl mac/index.html
+	mv -f mac.texi python-mac.texi
+	@echo "===== Doing Emacs cleanup on python-mac.texi"
+	emacs --batch python-mac.texi --eval $(EMACS_ACTION)
+	@echo "===== Done with Emacs cleanup on python-mac.texi"
+
+python-ref.texi:
+	$(CLEANUP_HTML) `find ref -name index.html -prune -o -name '*.html' -print`
+	html2texi.pl ref/index.html
+	mv -f ref.texi python-ref.texi
+	@echo "===== Doing Emacs cleanup on python-ref.texi"
+	emacs --batch python-ref.texi --eval $(EMACS_ACTION)
+	@echo "===== Done with Emacs cleanup on python-ref.texi"
+
+python-tut.texi:
+	$(CLEANUP_HTML) `find tut -name index.html -prune -o -name '*.html' -print`
+	html2texi.pl tut/index.html
+	mv -f tut.texi python-tut.texi
+	@echo "===== Doing Emacs cleanup on python-tut.texi"
+	emacs --batch python-tut.texi --eval $(EMACS_ACTION)
+	@echo "===== Done with Emacs cleanup on python-tut.texi"
+
+
+python-info.tar.gz: python-info.tar
+	cp -p python-info.tar python-info.tar-copy
+	gzip -f python-info.tar
+	mv python-info.tar-copy python-info.tar
+
+tgz: python-info.tar.gz
+
+python-info.tar: $(INFO_FILES)
+	mkdir python-info
+	cp -p python-*.info* python-info
+	tar cf python-info.tar python-info
+	rm -rf python-info
+
+tar: python-info.tar
+
+clean:
+	rm -rf $(TEXI_FILES) $(INFO_FILES)
+
+showvars:
+	@echo MANUALS:
+	@echo ${MANUALS}
+	@echo TEXI_FILES:
+	@echo ${TEXI_FILES}
+	@echo INFO_FILES:
+	@echo ${INFO_FILES}
+	@echo CLEANUP_HTML:
+	@echo ${CLEANUP_HTML}
